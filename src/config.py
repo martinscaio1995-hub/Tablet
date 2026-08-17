@@ -27,6 +27,10 @@ class Config:
     content_language: str = _env("CONTENT_LANGUAGE", "pt-BR")
     tts_voice: str = _env("TTS_VOICE", "pt-BR-FranciscaNeural")
 
+    # Texto livre descrevendo o que promover (produto, marca, programa de
+    # afiliados) para os agentes tecerem uma chamada natural no roteiro.
+    affiliate_note: str = _env("AFFILIATE_NOTE", "")
+
     assets_dir: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets")
     output_dir: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "output")
     data_dir: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")

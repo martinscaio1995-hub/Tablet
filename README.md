@@ -4,6 +4,9 @@ Pipeline em Python que usa agentes (Claude) para gerar ideias e roteiros,
 monta o vídeo (narração TTS + legendas + seus clipes/imagens) e publica
 via **API oficial do TikTok** (Content Posting API).
 
+Calibrado para nicho de **impressão 3D (Bambu Lab A1)** com afiliados,
+mas o nicho é 100% configurável via `CONTENT_NICHE`.
+
 > Não usa automação de navegador nem simula um usuário no app — só a API
 > oficial, que é a forma suportada e dentro dos termos de uso do TikTok
 > para postar conteúdo programaticamente.
@@ -75,6 +78,32 @@ TikTok, e imprime `TIKTOK_ACCESS_TOKEN` / `TIKTOK_REFRESH_TOKEN` /
 Coloque clipes (`.mp4`) ou imagens (`.jpg`/`.png`) na pasta `assets/`.
 O gerador de vídeo monta o fundo a partir desses arquivos; se a pasta
 estiver vazia, usa um fundo escuro liso.
+
+### Fluxo de esforço mínimo com a Bambu Lab A1
+
+A A1 grava timelapse automaticamente de cada impressão (verifique se a
+opção "Timelapse" está ativa no Bambu Studio / na tela da impressora).
+O fluxo com menos trabalho manual é:
+
+1. Depois de imprimir, copie o `.mp4` do timelapse (do cartão SD ou da
+   Bambu Handy) para `assets/`.
+2. Rode `python cli.py run --idea "nome/descrição rápida da peça que você imprimiu"`.
+3. O agente escreve o roteiro em cima dessa ideia, narra por cima do seu
+   timelapse real e já gera a legenda com hashtags (e CTA de afiliado,
+   se `AFFILIATE_NOTE` estiver preenchido no `.env`).
+
+Sem gravar nada extra além do que a impressora já grava sozinha.
+
+### Afiliados
+
+Preencha `AFFILIATE_NOTE` no `.env` descrevendo o que quer promover (um
+filamento, um acessório, um upgrade). O agente de roteiro tece uma
+chamada natural no vídeo em vez de um jingle de propaganda. Recomendado
+usar **TikTok Shop**: o produto fica vinculado direto no vídeo, sem
+precisar mandar ninguém pra um link externo — isso tende a converter
+melhor no TikTok do que Amazon Associates. Configurar o catálogo de
+produtos no TikTok Shop é feito pelo TikTok Seller Center, fora do
+escopo deste projeto.
 
 ## 6. Usar
 

@@ -14,6 +14,8 @@ def cmd_run(args):
     result = run_pipeline(niche=args.niche, idea=args.idea, post=args.post)
     print(f"\nIdeia: {result['idea']}")
     print(f"Caption: {result['script'].caption}")
+    if result["script"].cta:
+        print(f"CTA: {result['script'].cta}")
     print(f"Hashtags: {', '.join(result['script'].hashtags)}")
     print(f"Video salvo em: {result['video_path']}")
     if args.post:

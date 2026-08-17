@@ -21,7 +21,9 @@ def run_pipeline(niche: str | None = None, idea: str | None = None, post: bool =
         ideas = generate_ideas(niche, count=5)
         idea = random.choice(ideas)
 
-    script: VideoScript = write_script(idea, language=config.content_language)
+    script: VideoScript = write_script(
+        idea, language=config.content_language, affiliate_note=config.affiliate_note
+    )
 
     ts = int(time.time())
     audio_path = os.path.join(config.output_dir, f"narration_{ts}.mp3")
@@ -43,7 +45,8 @@ def run_pipeline(niche: str | None = None, idea: str | None = None, post: bool =
         from src.tiktok.client import post_video
 
         access_token = get_valid_access_token()
-        title = f"{script.caption} " + " ".join(f"#{h}" for h in script.hashtags)
+        caption_with_cta = f"{script.caption} {script.cta}".strip()
+        title = f"{caption_with_cta} " + " ".join(f"#{h}" for h in script.hashtags)
         status = post_video(
             access_token=access_token,
             video_path=video_path,
