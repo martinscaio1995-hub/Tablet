@@ -42,18 +42,22 @@ def run_pipeline(niche: str | None = None, idea: str | None = None, post: bool =
 
     if post:
         from src.tiktok.auth import get_valid_access_token
-        from src.tiktok.client import post_video
+        from src.tiktok.client import TikTokAPIError, post_video
 
         access_token = get_valid_access_token()
         caption_with_cta = f"{script.caption} {script.cta}".strip()
         title = f"{caption_with_cta} " + " ".join(f"#{h}" for h in script.hashtags)
-        status = post_video(
-            access_token=access_token,
-            video_path=video_path,
-            title=title,
-            privacy_level=config.tiktok_privacy_level,
-        )
-        result["posted"] = status.get("status") == "PUBLISH_COMPLETE"
-        result["publish_status"] = status
+        try:
+            status = post_video(
+                access_token=access_token,
+                video_path=video_path,
+                title=title,
+                privacy_level=config.tiktok_privacy_level,
+                is_branded_content=bool(script.cta),
+            )
+            result["posted"] = status.get("status") == "PUBLISH_COMPLETE"
+            result["publish_status"] = status
+        except TikTokAPIError as e:
+            result["publish_status"] = {"error": str(e)}
 
     return result

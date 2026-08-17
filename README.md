@@ -105,6 +105,19 @@ melhor no TikTok do que Amazon Associates. Configurar o catálogo de
 produtos no TikTok Shop é feito pelo TikTok Seller Center, fora do
 escopo deste projeto.
 
+**Divulgação obrigatória:** conteúdo de afiliado precisa ser marcado
+como "Parceria paga" (branded content) — é regra do TikTok e também
+proteção legal (CONAR/Procon aqui, regras equivalentes à FTC lá fora).
+O pipeline já ativa isso sozinho quando o roteiro gera um `cta` (ou
+seja, quando `AFFILIATE_NOTE` está preenchido). **Porém:** o TikTok
+proíbe marcar conteúdo de marca como privado (`SELF_ONLY`) — e, como
+vimos acima, todo post via API de um app não auditado sai forçado como
+`SELF_ONLY`. Ou seja: **antes da auditoria do seu app, vídeos de
+afiliado não podem ser publicados via `--post`** (o comando vai
+recusar com um erro explicando isso). Nesse período, gere o vídeo
+localmente e publique manualmente pelo app do TikTok marcando a
+divulgação de parceria paga na hora de postar.
+
 ## 6. Usar
 
 ```bash

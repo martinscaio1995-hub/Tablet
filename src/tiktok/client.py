@@ -55,6 +55,7 @@ def post_video(
     disable_duet: bool = False,
     disable_stitch: bool = False,
     disable_comment: bool = False,
+    is_branded_content: bool = False,
     poll_interval: float = 3.0,
     poll_timeout: float = 180.0,
 ) -> dict:
@@ -63,7 +64,22 @@ def post_video(
     Returns the final status payload once the upload reaches a terminal state.
     Note: until your TikTok app passes audit, all posts are forced to SELF_ONLY
     (private, visible only to the account owner) regardless of privacy_level.
+
+    `is_branded_content=True` sets TikTok's mandatory "Paid partnership"
+    disclosure for affiliate/promotional content (required by TikTok policy
+    and consumer-protection law, e.g. CONAR/FTC-style rules). TikTok forbids
+    branded content from being SELF_ONLY, so this raises instead of silently
+    posting undisclosed affiliate content while your app is unaudited.
     """
+    if is_branded_content and privacy_level == "SELF_ONLY":
+        raise TikTokAPIError(
+            "Conteúdo de afiliado (branded content) não pode ser SELF_ONLY, "
+            "mas seu app ainda não foi auditado pelo TikTok (que força "
+            "SELF_ONLY em todo post via API). Publique este vídeo manualmente "
+            "pelo app do TikTok com a divulgação de parceria paga marcada, "
+            "ou aguarde a auditoria do app para postar via API."
+        )
+
     video_size = os.path.getsize(video_path)
     chunk_size, total_chunk_count = _chunk_plan(video_size)
 
@@ -77,6 +93,7 @@ def post_video(
                 "disable_duet": disable_duet,
                 "disable_stitch": disable_stitch,
                 "disable_comment": disable_comment,
+                "brand_content_toggle": is_branded_content,
             },
             "source_info": {
                 "source": "FILE_UPLOAD",
