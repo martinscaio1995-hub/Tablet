@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+#
+# Mostra tudo que o celular precisa para conectar no tablet.
+# Instalado em $PREFIX/bin pelo setup.sh — rode só 'tablet-status'.
+
+set -uo pipefail
+
+titulo() { printf '\n\033[1;36m== %s\033[0m\n' "$*"; }
+verde()  { printf '\033[32m%s\033[0m\n' "$*"; }
+vermelho(){ printf '\033[31m%s\033[0m\n' "$*"; }
+
+PORTA=$(grep -E '^Port ' "$PREFIX/etc/ssh/sshd_config" 2>/dev/null | awk '{print $2}' | head -1)
+PORTA=${PORTA:-8022}
+
+titulo "Servidor SSH"
+if pgrep -x sshd >/dev/null 2>&1; then
+  verde "   rodando (PID $(pgrep -x sshd | tr '\n' ' '))"
+else
+  vermelho "   parado — suba com: sv up sshd     (ou apenas: sshd)"
+fi
+
+titulo "Endereço"
+echo "   usuário: $(whoami)"
+echo "   porta:   $PORTA"
+
+IPS=$(ip -4 addr show 2>/dev/null \
+  | grep -oE 'inet [0-9.]+' \
+  | awk '{print $2}' \
+  | grep -v '^127\.')
+
+if [ -n "$IPS" ]; then
+  for ip in $IPS; do
+    echo
+    verde "   ssh -p $PORTA $(whoami)@$ip"
+  done
+else
+  vermelho "   sem IP de rede — o tablet está conectado no Wi-Fi?"
+fi
+
+titulo "Chaves autorizadas"
+if [ -s "$HOME/.ssh/authorized_keys" ]; then
+  grep -c '^ssh-' "$HOME/.ssh/authorized_keys" | xargs printf '   %s chave(s)\n'
+  awk '{print "   - " $NF}' "$HOME/.ssh/authorized_keys"
+else
+  echo "   nenhuma — o acesso está por senha"
+fi
+
+titulo "Sessões tmux"
+tmux list-sessions 2>/dev/null | sed 's/^/   /' || echo "   nenhuma sessão aberta"
+echo
