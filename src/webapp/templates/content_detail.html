@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}{{ item.topic }}{% endblock %}
+{% block content %}
+
+{% if error %}<div class="flash error">{{ error }}</div>{% endif %}
+{% if ok %}<div class="flash ok">{{ ok }}</div>{% endif %}
+
+<a href="/" class="muted">&larr; voltar</a>
+
+<div class="card" style="margin-top: 0.75rem;">
+  <div class="row" style="justify-content: space-between;">
+    <h3 style="margin:0;">{{ item.topic }}</h3>
+    <span class="badge neutral">{{ item.status }}</span>
+  </div>
+  <p class="muted">{{ item.why_now }}</p>
+  <p><strong>Ângulo:</strong> {{ item.angle }}</p>
+  {% if item.product_tie_in %}<p><strong>Produto sugerido:</strong> {{ item.product_tie_in }}</p>{% endif %}
+</div>
+
+{% if item.viability_score is not none %}
+<div class="card">
+  <div class="row" style="justify-content: space-between;">
+    <h3 style="margin:0;">Vale a pena?</h3>
+    <span class="badge {{ 'good' if item.viability_score >= 70 else ('warn' if item.viability_score >= 40 else 'bad') }}">
+      {{ item.viability_score }}/100 — {{ item.viability_recommendation }}
+    </span>
+  </div>
+  <p class="muted">{{ item.viability_reasoning }}</p>
+</div>
+{% endif %}
+
+<div class="card">
+  <h3>1. Roteiro</h3>
+  {% if item.narration %}
+    <p><strong>Hook:</strong> {{ item.hook }}</p>
+    <p><strong>Narração:</strong> {{ item.narration }}</p>
+    <p><strong>Legenda:</strong> {{ item.caption }}</p>
+    <p class="muted">#{{ (item.hashtags_list or [])|join(' #') }}</p>
+    {% if item.cta %}<p><strong>CTA:</strong> {{ item.cta }}</p>{% endif %}
+  {% else %}
+    <p class="muted">Ainda não gerado.</p>
+    <form method="post" action="/content/{{ item.id }}/script">
+      <button type="submit">✍️ Gerar roteiro</button>
+    </form>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h3>2. Vídeo (narração + clipes de assets/)</h3>
+  {% if item.video_path %}
+    <p class="muted">Salvo em: {{ item.video_path }}</p>
+  {% elif item.narration %}
+    <form method="post" action="/content/{{ item.id }}/video">
+      <button type="submit">🎬 Gerar vídeo</button>
+    </form>
+  {% else %}
+    <p class="muted">Gere o roteiro primeiro.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h3>3. Imagem de anúncio (Gemini)</h3>
+  {% if item.image_path %}
+    <p class="muted">Salvo em: {{ item.image_path }}</p>
+  {% else %}
+    <form method="post" action="/content/{{ item.id }}/image">
+      <label for="image_prompt">Prompt (opcional — deixe em branco para usar o ângulo do vídeo)</label>
+      <textarea id="image_prompt" name="prompt" rows="2" placeholder="ex: foto de produto do filamento em cima da mesa de impressão"></textarea>
+      <button type="submit">🖼️ Gerar imagem</button>
+    </form>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h3>4. Música (ElevenLabs)</h3>
+  {% if item.music_path %}
+    <p class="muted">Salvo em: {{ item.music_path }}</p>
+  {% else %}
+    <form method="post" action="/content/{{ item.id }}/music">
+      <label for="music_prompt">Prompt (opcional — deixe em branco para usar o ângulo do vídeo)</label>
+      <textarea id="music_prompt" name="prompt" rows="2" placeholder="ex: trilha instrumental leve e curiosa, sem vocais"></textarea>
+      <button type="submit">🎵 Gerar música</button>
+    </form>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h3>5. Publicação</h3>
+  {% if item.status == 'posted' %}
+    <p class="muted">Marcado como postado.</p>
+  {% else %}
+    <p class="muted">A publicação em si continua manual pelo app do TikTok (ou <code>python cli.py run --idea "..." --post</code> depois de auditado). Quando postar, marque aqui:</p>
+    <form method="post" action="/content/{{ item.id }}/posted">
+      <button type="submit" class="secondary">✅ Marcar como postado</button>
+    </form>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h3>Registrar venda ligada a este conteúdo</h3>
+  <form method="post" action="/sales">
+    <input type="hidden" name="content_item_id" value="{{ item.id }}">
+    <label for="product">Produto</label>
+    <input type="text" id="product" name="product" value="{{ item.product_tie_in }}" required>
+    <label for="revenue">Valor (R$)</label>
+    <input type="number" id="revenue" name="revenue" step="0.01" min="0" required>
+    <label for="sale_date">Data</label>
+    <input type="date" id="sale_date" name="sale_date" required>
+    <button type="submit" class="secondary">💰 Registrar venda</button>
+  </form>
+</div>
+
+{% endblock %}

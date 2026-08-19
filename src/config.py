@@ -31,9 +31,23 @@ class Config:
     # afiliados) para os agentes tecerem uma chamada natural no roteiro.
     affiliate_note: str = _env("AFFILIATE_NOTE", "")
 
+    webapp_host: str = _env("WEBAPP_HOST", "0.0.0.0")
+    webapp_port: int = int(_env("WEBAPP_PORT", "8000"))
+
+    gemini_api_key: str = _env("GEMINI_API_KEY")
+    elevenlabs_api_key: str = _env("ELEVENLABS_API_KEY")
+
+    tiktok_shop_app_key: str = _env("TIKTOK_SHOP_APP_KEY")
+    tiktok_shop_app_secret: str = _env("TIKTOK_SHOP_APP_SECRET")
+    tiktok_shop_access_token: str = _env("TIKTOK_SHOP_ACCESS_TOKEN")
+    tiktok_shop_shop_id: str = _env("TIKTOK_SHOP_SHOP_ID")
+
     assets_dir: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets")
     output_dir: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "output")
     data_dir: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+    db_path: str = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), "data", "tablet.db"
+    )
 
 
 config = Config()

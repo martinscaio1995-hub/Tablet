@@ -5,3 +5,13 @@ moviepy>=1.0.3
 requests>=2.32.0
 Pillow>=10.4.0
 APScheduler>=3.10.4
+
+# ---- Aplicação web (dashboard) ----
+fastapi>=0.115.0
+uvicorn>=0.32.0
+jinja2>=3.1.4
+python-multipart>=0.0.12
+
+# ---- Geração de imagem (Gemini) e música (ElevenLabs) ----
+google-genai>=0.3.0
+elevenlabs>=1.9.0

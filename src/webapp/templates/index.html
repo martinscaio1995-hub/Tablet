@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Painel do canal{% endblock %}
+{% block content %}
+
+{% if error %}<div class="flash error">{{ error }}</div>{% endif %}
+
+<div class="card">
+  <h3>Pesquisar tendências agora</h3>
+  <p class="muted">Busca na web o que está bombando no nicho e já avalia se vale a pena virar vídeo (com base no que já vendeu, se houver histórico).</p>
+  <form method="post" action="/trends/refresh">
+    <label for="niche">Nicho (deixe em branco para usar o CONTENT_NICHE do .env)</label>
+    <input type="text" id="niche" name="niche" placeholder="{{ default_niche }}">
+    <button type="submit">🔍 Pesquisar tendências</button>
+  </form>
+</div>
+
+<div class="card">
+  <h3>Resumo de vendas</h3>
+  {% if sales_summary.total_cents %}
+    <p>Total registrado: <strong>R$ {{ "%.2f"|format(sales_summary.total_cents / 100) }}</strong></p>
+    <p class="muted">{{ sales_summary.by_product|length }} produto(s) com venda — <a href="/sales">ver detalhes</a></p>
+  {% else %}
+    <p class="muted">Nenhuma venda registrada ainda. <a href="/sales">Registrar a primeira</a>.</p>
+  {% endif %}
+</div>
+
+<h3 style="margin: 1.5rem 0 0.75rem;">Conteúdo</h3>
+
+{% if items %}
+  {% for item in items %}
+  <div class="card">
+    <div class="row" style="justify-content: space-between;">
+      <strong>{{ item.topic }}</strong>
+      {% if item.viability_score is not none %}
+        <span class="badge {{ 'good' if item.viability_score >= 70 else ('warn' if item.viability_score >= 40 else 'bad') }}">
+          {{ item.viability_score }}/100
+        </span>
+      {% endif %}
+    </div>
+    <p class="muted" style="margin: 0.4rem 0;">{{ item.angle }}</p>
+    <div class="row">
+      <span class="badge neutral">{{ item.status }}</span>
+      {% if item.viability_recommendation %}
+        <span class="badge {{ 'good' if item.viability_recommendation == 'criar_agora' else ('warn' if item.viability_recommendation == 'esperar' else 'bad') }}">
+          {{ item.viability_recommendation }}
+        </span>
+      {% endif %}
+    </div>
+    <div class="row" style="margin-top: 0.7rem;">
+      <a class="btn secondary" href="/content/{{ item.id }}">Abrir</a>
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+  <div class="empty">Nenhum conteúdo ainda — pesquise tendências acima para começar.</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Vendas{% endblock %}
+{% block content %}
+
+{% if error %}<div class="flash error">{{ error }}</div>{% endif %}
+{% if ok %}<div class="flash ok">{{ ok }}</div>{% endif %}
+
+<div class="card">
+  <h3>Total: R$ {{ "%.2f"|format(summary.total_cents / 100) }}</h3>
+  {% if summary.by_product %}
+    <table>
+      <tr><th>Produto</th><th>Vendas</th><th>Total</th></tr>
+      {% for p in summary.by_product %}
+      <tr><td>{{ p.product }}</td><td>{{ p.n }}</td><td>R$ {{ "%.2f"|format(p.total / 100) }}</td></tr>
+      {% endfor %}
+    </table>
+  {% endif %}
+  <p class="muted" style="margin-top:0.75rem;">
+    Lançamento manual por enquanto — integração automática com TikTok Shop
+    precisa de aprovação de parceiro, veja <code>docs/tiktok-shop-vendas.md</code>.
+  </p>
+</div>
+
+<div class="card">
+  <h3>Registrar venda</h3>
+  <form method="post" action="/sales">
+    <label for="product">Produto</label>
+    <input type="text" id="product" name="product" required>
+    <label for="revenue">Valor (R$)</label>
+    <input type="number" id="revenue" name="revenue" step="0.01" min="0" required>
+    <label for="sale_date">Data</label>
+    <input type="date" id="sale_date" name="sale_date" required>
+    <label for="note">Nota (opcional)</label>
+    <input type="text" id="note" name="note">
+    <button type="submit">💰 Registrar</button>
+  </form>
+</div>
+
+<h3>Histórico</h3>
+{% if sales %}
+<table>
+  <tr><th>Data</th><th>Produto</th><th>Valor</th><th>Origem</th></tr>
+  {% for s in sales %}
+  <tr>
+    <td>{{ s.sale_date }}</td>
+    <td>{{ s.product }}</td>
+    <td>R$ {{ "%.2f"|format(s.revenue_cents / 100) }}</td>
+    <td class="muted">{{ s.source }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<div class="empty">Nenhuma venda registrada ainda.</div>
+{% endif %}
+
+{% endblock %}
