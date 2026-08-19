@@ -121,6 +121,9 @@ divulgação de parceria paga na hora de postar.
 ## 6. Usar
 
 ```bash
+# ver o que está bombando agora no nicho (pesquisa na web)
+python cli.py trends
+
 # ver ideias sem gerar vídeo
 python cli.py ideas --niche "finanças pessoais para jovens"
 
@@ -132,7 +135,24 @@ python cli.py run --niche "finanças pessoais para jovens" --post
 
 # usar uma ideia específica em vez de gerar uma
 python cli.py run --idea "3 erros que fazem você perder dinheiro no PIX" --post
+
+# pular a pesquisa de tendências (mais rápido e mais barato)
+python cli.py run --no-trends
 ```
+
+### Pesquisa de tendências (afiliados)
+
+Por padrão, `python cli.py run` pesquisa na web o que está bombando no seu
+nicho (últimos 7-14 dias) antes de gerar a ideia — TikTok, Reddit, YouTube,
+notícias do nicho — e ancora o roteiro num ângulo real e recente em vez de
+um tema genérico. Se `AFFILIATE_NOTE` estiver em branco no `.env`, o
+pipeline também sugere sozinho que tipo de produto (filamento, upgrade,
+acessório) faria sentido promover naquele vídeo específico, com base na
+tendência encontrada.
+
+Isso consome mais tokens por rodada (a pesquisa na web tem custo). Para
+só gerar rápido e barato sem pesquisar tendência, use `--no-trends` ou
+`--idea "..."` diretamente.
 
 ## 7. Agendamento automático (opcional)
 
@@ -175,6 +195,7 @@ Instalação do Termux e do ambiente Python no tablet:
 
 ```
 src/
+  agents/trends_agent.py   -> pesquisa tendências na web (Claude + web search)
   agents/idea_agent.py     -> gera ideias de vídeo (Claude)
   agents/script_agent.py   -> gera hook/roteiro/legenda/hashtags (Claude)
   video/tts.py             -> narração via edge-tts (gratuito, sem API key)
