@@ -33,7 +33,12 @@ CREATE TABLE IF NOT EXISTS content_items (
     video_path TEXT,
     image_path TEXT,
     music_path TEXT,
-    status TEXT NOT NULL DEFAULT 'trend'
+    status TEXT NOT NULL DEFAULT 'trend',
+    hooks TEXT,
+    chosen_hook TEXT,
+    views INTEGER,
+    likes INTEGER,
+    posted_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS sales (
@@ -62,9 +67,29 @@ def get_conn():
         conn.close()
 
 
+# Colunas acrescentadas depois da primeira versão do schema. SQLite não
+# tem "ADD COLUMN IF NOT EXISTS", então comparamos com o PRAGMA.
+_MIGRACOES = {
+    "content_items": {
+        "hooks": "TEXT",
+        "chosen_hook": "TEXT",
+        "views": "INTEGER",
+        "likes": "INTEGER",
+        "posted_at": "TEXT",
+    }
+}
+
+
 def init_db() -> None:
     with get_conn() as conn:
         conn.executescript(SCHEMA)
+        for tabela, colunas in _MIGRACOES.items():
+            existentes = {
+                r["name"] for r in conn.execute(f"PRAGMA table_info({tabela})")
+            }
+            for coluna, tipo in colunas.items():
+                if coluna not in existentes:
+                    conn.execute(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {tipo}")
 
 
 def _now() -> str:
@@ -135,11 +160,56 @@ def update_asset(item_id: int, field: str, path: str) -> None:
             )
 
 
+def save_hooks(item_id: int, hooks: list[dict]) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE content_items SET hooks = ? WHERE id = ?",
+            (json.dumps(hooks, ensure_ascii=False), item_id),
+        )
+
+
+def choose_hook(item_id: int, hook: str) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE content_items SET chosen_hook = ? WHERE id = ?", (hook, item_id)
+        )
+
+
 def mark_posted(item_id: int) -> None:
     with get_conn() as conn:
         conn.execute(
-            "UPDATE content_items SET status = 'posted' WHERE id = ?", (item_id,)
+            "UPDATE content_items SET status = 'posted', posted_at = ? WHERE id = ?",
+            (_now(), item_id),
         )
+
+
+def record_performance(item_id: int, views: int, likes: int) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE content_items SET views = ?, likes = ? WHERE id = ?",
+            (views, likes, item_id),
+        )
+
+
+def performance_context(limit: int = 15) -> str:
+    """Resumo do que já foi postado e como performou, para o agente de hooks
+    aprender o que funciona com a SUA audiência (e não com a média da
+    internet). Vazio enquanto não houver vídeo com views registradas.
+    """
+    with get_conn() as conn:
+        rows = conn.execute(
+            """SELECT chosen_hook, views, likes FROM content_items
+               WHERE views IS NOT NULL AND chosen_hook IS NOT NULL
+               ORDER BY views DESC LIMIT ?""",
+            (limit,),
+        ).fetchall()
+    if not rows:
+        return ""
+    linhas = [
+        f'- "{r["chosen_hook"]}" → {r["views"]} views, {r["likes"] or 0} likes'
+        for r in rows
+    ]
+    return "\n".join(linhas)
 
 
 def list_content(limit: int = 50) -> list[dict]:

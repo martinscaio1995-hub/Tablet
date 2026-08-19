@@ -43,6 +43,16 @@ def cmd_auth(_args):
     auth._run_local_flow()
 
 
+def cmd_webapp(args):
+    import uvicorn
+
+    host = args.host or config.webapp_host
+    port = args.port or config.webapp_port
+    print(f"\nPainel rodando em http://{host}:{port}")
+    print("No celular, use o IP do tablet no lugar de 0.0.0.0\n")
+    uvicorn.run("src.webapp.app:app", host=host, port=port)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Pipeline de agentes para conteudo do TikTok")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -72,6 +82,11 @@ def main():
 
     p_auth = sub.add_parser("auth", help="Autorizar o app no TikTok (OAuth)")
     p_auth.set_defaults(func=cmd_auth)
+
+    p_web = sub.add_parser("webapp", help="Subir o painel web")
+    p_web.add_argument("--host", default=None)
+    p_web.add_argument("--port", type=int, default=None)
+    p_web.set_defaults(func=cmd_webapp)
 
     args = parser.parse_args()
     args.func(args)

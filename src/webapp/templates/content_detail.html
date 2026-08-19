@@ -30,7 +30,36 @@
 {% endif %}
 
 <div class="card">
-  <h3>1. Roteiro</h3>
+  <h3>1. Hook — os 2 primeiros segundos</h3>
+  <p class="muted">É o que decide se a pessoa assiste ou desliza. Gere várias opções e escolha a que você falaria de verdade.</p>
+
+  {% if item.chosen_hook %}
+    <p style="font-size:1.1rem;"><strong>“{{ item.chosen_hook }}”</strong></p>
+  {% endif %}
+
+  {% if item.hooks_list %}
+    {% for h in item.hooks_list %}
+      <div style="border-top:1px solid var(--border); padding-top:0.7rem; margin-top:0.7rem;">
+        <p style="margin:0 0 0.3rem;">“{{ h.hook }}”</p>
+        <p class="muted" style="margin:0 0 0.5rem;">{{ h.padrao }} — {{ h.por_que_funciona }}</p>
+        <form method="post" action="/content/{{ item.id }}/hook/choose">
+          <input type="hidden" name="hook" value="{{ h.hook }}">
+          <button type="submit" class="secondary">Usar este</button>
+        </form>
+      </div>
+    {% endfor %}
+    <form method="post" action="/content/{{ item.id }}/hooks" style="margin-top:0.8rem;">
+      <button type="submit" class="secondary">🔁 Gerar outras opções</button>
+    </form>
+  {% else %}
+    <form method="post" action="/content/{{ item.id }}/hooks">
+      <button type="submit">🎯 Gerar hooks</button>
+    </form>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h3>2. Roteiro</h3>
   {% if item.narration %}
     <p><strong>Hook:</strong> {{ item.hook }}</p>
     <p><strong>Narração:</strong> {{ item.narration }}</p>
@@ -46,7 +75,7 @@
 </div>
 
 <div class="card">
-  <h3>2. Vídeo (narração + clipes de assets/)</h3>
+  <h3>3. Vídeo (narração + clipes de assets/)</h3>
   {% if item.video_path %}
     <p class="muted">Salvo em: {{ item.video_path }}</p>
   {% elif item.narration %}
@@ -59,7 +88,7 @@
 </div>
 
 <div class="card">
-  <h3>3. Imagem de anúncio (Gemini)</h3>
+  <h3>4. Imagem de anúncio (Gemini)</h3>
   {% if item.image_path %}
     <p class="muted">Salvo em: {{ item.image_path }}</p>
   {% else %}
@@ -72,7 +101,7 @@
 </div>
 
 <div class="card">
-  <h3>4. Música (ElevenLabs)</h3>
+  <h3>5. Música (ElevenLabs)</h3>
   {% if item.music_path %}
     <p class="muted">Salvo em: {{ item.music_path }}</p>
   {% else %}
@@ -85,9 +114,19 @@
 </div>
 
 <div class="card">
-  <h3>5. Publicação</h3>
+  <h3>6. Publicação</h3>
   {% if item.status == 'posted' %}
     <p class="muted">Marcado como postado.</p>
+    <div style="border-top:1px solid var(--border); padding-top:0.8rem; margin-top:0.8rem;">
+      <p class="muted">Volte aqui um ou dois dias depois e registre o resultado — é assim que os próximos hooks ficam melhores.</p>
+      <form method="post" action="/content/{{ item.id }}/performance">
+        <label for="views">Visualizações</label>
+        <input type="number" id="views" name="views" min="0" value="{{ item.views or '' }}" required>
+        <label for="likes">Curtidas</label>
+        <input type="number" id="likes" name="likes" min="0" value="{{ item.likes or '' }}">
+        <button type="submit" class="secondary">📊 Registrar desempenho</button>
+      </form>
+    </div>
   {% else %}
     <p class="muted">A publicação em si continua manual pelo app do TikTok (ou <code>python cli.py run --idea "..." --post</code> depois de auditado). Quando postar, marque aqui:</p>
     <form method="post" action="/content/{{ item.id }}/posted">

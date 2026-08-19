@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from src import store
+from src.agents.hook_agent import generate_hooks
 from src.agents.script_agent import write_script
 from src.agents.trends_agent import research_trends
 from src.agents.viability_agent import score_viability
@@ -115,6 +116,7 @@ def content_detail(request: Request, item_id: int, ok: str | None = None, error:
     if not item:
         return _redirect("/", error="Conteúdo não encontrado.")
     item["hashtags_list"] = json.loads(item["hashtags"]) if item.get("hashtags") else []
+    item["hooks_list"] = json.loads(item["hooks"]) if item.get("hooks") else []
     return templates.TemplateResponse(
         "content_detail.html",
         {"request": request, "item": item, "ok": ok, "error": error},
@@ -196,10 +198,43 @@ def content_music(item_id: int, prompt: str = Form("")):
     return _redirect(f"/content/{item_id}", ok="Música gerada.")
 
 
+@app.post("/content/{item_id}/hooks")
+def content_hooks(item_id: int):
+    item = store.get_content(item_id)
+    if not item:
+        return _redirect("/", error="Conteúdo não encontrado.")
+    try:
+        hooks = generate_hooks(
+            niche=item["niche"],
+            topic=item["topic"],
+            angle=item["angle"],
+            performance_context=store.performance_context(),
+        )
+        store.save_hooks(item_id, hooks)
+    except Exception as e:  # noqa: BLE001
+        return _redirect(f"/content/{item_id}", error=f"Falha ao gerar hooks: {e}")
+    return _redirect(f"/content/{item_id}", ok=f"{len(hooks)} hooks gerados.")
+
+
+@app.post("/content/{item_id}/hook/choose")
+def content_choose_hook(item_id: int, hook: str = Form(...)):
+    store.choose_hook(item_id, hook)
+    return _redirect(f"/content/{item_id}", ok="Hook escolhido.")
+
+
 @app.post("/content/{item_id}/posted")
 def content_mark_posted(item_id: int):
     store.mark_posted(item_id)
     return _redirect(f"/content/{item_id}", ok="Marcado como postado.")
+
+
+@app.post("/content/{item_id}/performance")
+def content_performance(item_id: int, views: int = Form(...), likes: int = Form(0)):
+    store.record_performance(item_id, views, likes)
+    return _redirect(
+        f"/content/{item_id}",
+        ok="Desempenho registrado — os próximos hooks já aprendem com ele.",
+    )
 
 
 # --------------------------------------------------------------------- sales --
