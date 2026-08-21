@@ -6,8 +6,12 @@ venv/
 output/*.mp4
 output/*.mp3
 output/*.png
-output/*.stl
-output/*.3mf
+
+# Modelos ficam versionados de propósito: são o entregável das encomendas
+# e precisam chegar na máquina local por `git pull`. São pequenos (dezenas
+# de KB), ao contrário do vídeo e do áudio acima.
+!output/*.stl
+!output/*.3mf
 data/*.json
 !output/.gitkeep
 !data/.gitkeep
