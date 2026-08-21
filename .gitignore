@@ -15,3 +15,7 @@ output/*.png
 data/*.json
 !output/.gitkeep
 !data/.gitkeep
+
+# Peças de modelos de terceiros, separadas localmente para impressão.
+# Ficam fora do repositório: são do autor do modelo, não deste projeto.
+output/berimbau/
