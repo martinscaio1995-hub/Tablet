@@ -32,6 +32,33 @@ def _circulo(raio: float, z: float, segmentos: int) -> list[tuple]:
     ]
 
 
+def _retangulo(largura: float, altura: float, z: float, segmentos: int) -> list[tuple]:
+    """Contorno de um retângulo amostrado em `segmentos` pontos igualmente
+    espaçados ao longo do perímetro, no mesmo sentido do círculo.
+
+    Manter a mesma contagem de pontos do contorno externo é o que permite
+    reaproveitar as funções de coroa e parede sem tratar caso especial.
+    """
+    w, h = largura / 2, altura / 2
+    cantos = [(w, -h), (w, h), (-w, h), (-w, -h)]
+    lados = [(cantos[i], cantos[(i + 1) % 4]) for i in range(4)]
+    comprimentos = [
+        math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in lados
+    ]
+    perimetro = sum(comprimentos)
+
+    pontos = []
+    for i in range(segmentos):
+        d = perimetro * i / segmentos
+        for (a, b), comp in zip(lados, comprimentos):
+            if d <= comp or (a, b) == lados[-1]:
+                t = d / comp
+                pontos.append((a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, z))
+                break
+            d -= comp
+    return pontos
+
+
 def _tampa(pontos: list[tuple], z: float, para_cima: bool) -> list[tuple]:
     """Disco cheio, em leque a partir do centro."""
     centro = (0.0, 0.0, z)
@@ -75,7 +102,7 @@ def gerar_secao(
     z0: float,
     z1: float,
     raio_em,
-    r_furo: float,
+    contorno_furo,
     z_furo: float,
     segmentos: int,
 ) -> list[tuple]:
@@ -101,12 +128,12 @@ def gerar_secao(
         return tris
 
     z_inicio_furo = max(z0, z_furo)
-    furo_lo = _circulo(r_furo, z_inicio_furo, segmentos)
-    furo_hi = _circulo(r_furo, z1, segmentos)
+    furo_lo = contorno_furo(z_inicio_furo)
+    furo_hi = contorno_furo(z1)
 
     # Face de baixo: vira anel se o furo já a atravessa, senão é disco cheio.
     if furo_atravessa_baixo:
-        tris += _coroa(ext_baixo, _circulo(r_furo, z0, segmentos), para_cima=False)
+        tris += _coroa(ext_baixo, contorno_furo(z0), para_cima=False)
     else:
         tris += _tampa(ext_baixo, z0, para_cima=False)
         # Fundo do furo cai dentro desta fatia.
@@ -125,6 +152,7 @@ def gerar_base(
     profundidade_furo: float,
     segmentos: int,
     faixas: list[float] | None = None,
+    furo_retangular: tuple[float, float] | None = None,
 ) -> list[list[tuple]]:
     """Monta a base como tronco de cone com furo cego central.
 
@@ -137,6 +165,15 @@ def gerar_base(
     r_topo = diametro_topo / 2
     r_furo = diametro_furo / 2
     z_furo = altura - profundidade_furo
+
+    if furo_retangular:
+        largura, profund = furo_retangular
+        r_furo = math.hypot(largura, profund) / 2  # meia-diagonal, para as checagens
+        def contorno_furo(z):
+            return _retangulo(largura, profund, z, segmentos)
+    else:
+        def contorno_furo(z):
+            return _circulo(r_furo, z, segmentos)
 
     if z_furo <= 0:
         raise ValueError(
@@ -156,7 +193,7 @@ def gerar_base(
         return r_base + (r_topo - r_base) * (z / altura)
 
     return [
-        gerar_secao(z0, z1, raio_em, r_furo, z_furo, segmentos)
+        gerar_secao(z0, z1, raio_em, contorno_furo, z_furo, segmentos)
         for z0, z1 in zip(limites, limites[1:])
     ]
 
@@ -214,6 +251,11 @@ def main():
                    help="Profundidade do furo, em mm (padrão: 12)")
     p.add_argument("--segmentos", type=int, default=128,
                    help="Segmentos do círculo — mais = mais liso (padrão: 128)")
+    p.add_argument("--furo-retangular", default="",
+                   help="Encaixe retangular em vez de redondo: LARGURAxALTURA em mm "
+                        "medidas na peça (ex: 4.63x4.0). A folga é somada aos dois "
+                        "lados. Use quando a ponta não for cilíndrica — furo redondo "
+                        "deixaria a peça girar.")
     p.add_argument("--berimbau", action="store_true",
                    help="Preset multicolor: faixa verde, faixa amarela e corpo madeira")
     p.add_argument("--faixas", default="",
@@ -225,6 +267,14 @@ def main():
 
     diametro_topo = args.diametro_topo or args.diametro * 0.88
     diametro_furo = args.furo + args.folga
+
+    furo_ret = None
+    if args.furo_retangular:
+        try:
+            larg, alt = (float(v) for v in args.furo_retangular.lower().split("x"))
+        except ValueError:
+            p.error("--furo-retangular espera LARGURAxALTURA, ex: 4.63x4.0")
+        furo_ret = (larg + args.folga, alt + args.folga)
 
     if args.berimbau:
         faixas = PRESET_BERIMBAU["faixas"]
@@ -243,6 +293,7 @@ def main():
         profundidade_furo=args.profundidade,
         segmentos=args.segmentos,
         faixas=faixas,
+        furo_retangular=furo_ret,
     )
 
     if nomes is None:
@@ -268,8 +319,12 @@ def main():
     print(f"\n  Base .......... {args.diametro:.1f} mm")
     print(f"  Topo .......... {diametro_topo:.1f} mm")
     print(f"  Altura ........ {args.altura:.1f} mm")
-    print(f"  Furo .......... {diametro_furo:.1f} mm "
-          f"(verga {args.furo:.1f} + folga {args.folga:.1f})")
+    if furo_ret:
+        print(f"  Encaixe ....... {furo_ret[0]:.2f} x {furo_ret[1]:.2f} mm "
+              f"retangular (peça {args.furo_retangular} + folga {args.folga:.1f})")
+    else:
+        print(f"  Furo .......... {diametro_furo:.1f} mm "
+              f"(verga {args.furo:.1f} + folga {args.folga:.1f})")
     print(f"  Profundidade .. {args.profundidade:.1f} mm\n")
     print("  Fatiamento: sem suporte, 4 paredes, 40-60% de preenchimento.")
     print("  O peso da base é o que impede o berimbau de tombar.\n")
