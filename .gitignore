@@ -5,6 +5,9 @@ __pycache__/
 venv/
 output/*.mp4
 output/*.mp3
+output/*.png
+output/*.stl
+output/*.3mf
 data/*.json
 !output/.gitkeep
 !data/.gitkeep
