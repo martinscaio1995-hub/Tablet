@@ -32,6 +32,91 @@ def _circulo(raio: float, z: float, segmentos: int) -> list[tuple]:
     ]
 
 
+def _tampa(pontos: list[tuple], z: float, para_cima: bool) -> list[tuple]:
+    """Disco cheio, em leque a partir do centro."""
+    centro = (0.0, 0.0, z)
+    n = len(pontos)
+    if para_cima:
+        return [(centro, pontos[i], pontos[(i + 1) % n]) for i in range(n)]
+    return [(centro, pontos[(i + 1) % n], pontos[i]) for i in range(n)]
+
+
+def _coroa(externo: list[tuple], interno: list[tuple], para_cima: bool) -> list[tuple]:
+    """Anel plano entre dois círculos concêntricos (face com furo no meio)."""
+    tris = []
+    n = len(externo)
+    for i in range(n):
+        j = (i + 1) % n
+        if para_cima:
+            tris.append((externo[i], externo[j], interno[j]))
+            tris.append((externo[i], interno[j], interno[i]))
+        else:
+            tris.append((externo[i], interno[j], externo[j]))
+            tris.append((externo[i], interno[i], interno[j]))
+    return tris
+
+
+def _parede(baixo: list[tuple], cima: list[tuple], para_fora: bool) -> list[tuple]:
+    """Superfície lateral entre dois círculos em alturas diferentes."""
+    tris = []
+    n = len(baixo)
+    for i in range(n):
+        j = (i + 1) % n
+        if para_fora:
+            tris.append((baixo[i], baixo[j], cima[j]))
+            tris.append((baixo[i], cima[j], cima[i]))
+        else:
+            tris.append((baixo[i], cima[j], baixo[j]))
+            tris.append((baixo[i], cima[i], cima[j]))
+    return tris
+
+
+def gerar_secao(
+    z0: float,
+    z1: float,
+    raio_em,
+    r_furo: float,
+    z_furo: float,
+    segmentos: int,
+) -> list[tuple]:
+    """Gera uma fatia horizontal da base, entre z0 e z1, já descontando o
+    furo onde ele existir.
+
+    Cada fatia sai como sólido fechado independente — é isso que permite
+    imprimir cada uma em uma cor e o fatiador aceitar sem reparo.
+    """
+    ext_baixo = _circulo(raio_em(z0), z0, segmentos)
+    ext_cima = _circulo(raio_em(z1), z1, segmentos)
+
+    # O furo ocupa de z_furo até o topo da peça. Nesta fatia ele aparece
+    # só se o topo dela estiver acima do início do furo.
+    tem_furo = z1 > z_furo
+    furo_atravessa_baixo = z0 >= z_furo
+
+    tris = list(_parede(ext_baixo, ext_cima, para_fora=True))
+
+    if not tem_furo:
+        tris += _tampa(ext_baixo, z0, para_cima=False)
+        tris += _tampa(ext_cima, z1, para_cima=True)
+        return tris
+
+    z_inicio_furo = max(z0, z_furo)
+    furo_lo = _circulo(r_furo, z_inicio_furo, segmentos)
+    furo_hi = _circulo(r_furo, z1, segmentos)
+
+    # Face de baixo: vira anel se o furo já a atravessa, senão é disco cheio.
+    if furo_atravessa_baixo:
+        tris += _coroa(ext_baixo, _circulo(r_furo, z0, segmentos), para_cima=False)
+    else:
+        tris += _tampa(ext_baixo, z0, para_cima=False)
+        # Fundo do furo cai dentro desta fatia.
+        tris += _tampa(furo_lo, z_inicio_furo, para_cima=True)
+
+    tris += _parede(furo_lo, furo_hi, para_fora=False)
+    tris += _coroa(ext_cima, furo_hi, para_cima=True)
+    return tris
+
+
 def gerar_base(
     diametro_base: float,
     diametro_topo: float,
@@ -39,12 +124,14 @@ def gerar_base(
     diametro_furo: float,
     profundidade_furo: float,
     segmentos: int,
-) -> list[tuple]:
-    """Monta a malha da base como lista de triângulos (3 vértices cada).
+    faixas: list[float] | None = None,
+) -> list[list[tuple]]:
+    """Monta a base como tronco de cone com furo cego central.
 
-    A peça é um tronco de cone (base mais larga que o topo, para dar
-    estabilidade e um acabamento melhor) com um furo cego no centro onde
-    a verga encaixa.
+    `faixas` são alturas (mm) onde cortar a peça em bandas horizontais —
+    uma por cor. Sem faixas, retorna uma peça única.
+
+    Retorna uma lista de malhas, de baixo para cima.
     """
     r_base = diametro_base / 2
     r_topo = diametro_topo / 2
@@ -62,37 +149,16 @@ def gerar_base(
             f"{diametro_topo} mm. Aumente --diametro."
         )
 
-    inferior = _circulo(r_base, 0.0, segmentos)
-    superior = _circulo(r_topo, altura, segmentos)
-    furo_topo = _circulo(r_furo, altura, segmentos)
-    furo_fundo = _circulo(r_furo, z_furo, segmentos)
+    cortes = sorted({round(z, 4) for z in (faixas or []) if 0 < z < altura})
+    limites = [0.0, *cortes, altura]
 
-    centro_inferior = (0.0, 0.0, 0.0)
-    centro_furo = (0.0, 0.0, z_furo)
+    def raio_em(z: float) -> float:
+        return r_base + (r_topo - r_base) * (z / altura)
 
-    tris = []
-    for i in range(segmentos):
-        j = (i + 1) % segmentos
-
-        # Face de baixo (normal para -Z): assenta na mesa de impressão.
-        tris.append((centro_inferior, inferior[j], inferior[i]))
-
-        # Parede externa cônica (normal para fora).
-        tris.append((inferior[i], inferior[j], superior[j]))
-        tris.append((inferior[i], superior[j], superior[i]))
-
-        # Coroa do topo, entre a borda externa e o furo (normal para +Z).
-        tris.append((superior[i], superior[j], furo_topo[j]))
-        tris.append((superior[i], furo_topo[j], furo_topo[i]))
-
-        # Parede do furo (normal para dentro, apontando ao eixo).
-        tris.append((furo_topo[i], furo_topo[j], furo_fundo[j]))
-        tris.append((furo_topo[i], furo_fundo[j], furo_fundo[i]))
-
-        # Fundo do furo (normal para +Z).
-        tris.append((centro_furo, furo_fundo[i], furo_fundo[j]))
-
-    return tris
+    return [
+        gerar_secao(z0, z1, raio_em, r_furo, z_furo, segmentos)
+        for z0, z1 in zip(limites, limites[1:])
+    ]
 
 
 # ---------------------------------------------------------------------- STL --
@@ -122,6 +188,14 @@ def escrever_stl(triangulos: list[tuple], caminho: str) -> None:
 # ---------------------------------------------------------------------- CLI --
 
 
+# Bandas do preset --berimbau: verde e amarelo do Brasil na barra de baixo,
+# corpo em tom de madeira, como a verga e a cabaça natural.
+PRESET_BERIMBAU = {
+    "faixas": [3.0, 6.0],
+    "nomes": ["verde", "amarelo", "madeira"],
+}
+
+
 def main():
     p = argparse.ArgumentParser(
         description="Gera base de display em STL (paramétrica, sem dependências)."
@@ -140,26 +214,58 @@ def main():
                    help="Profundidade do furo, em mm (padrão: 12)")
     p.add_argument("--segmentos", type=int, default=128,
                    help="Segmentos do círculo — mais = mais liso (padrão: 128)")
+    p.add_argument("--berimbau", action="store_true",
+                   help="Preset multicolor: faixa verde, faixa amarela e corpo madeira")
+    p.add_argument("--faixas", default="",
+                   help="Alturas de corte em mm, separadas por vírgula (ex: 3,6). "
+                        "Cada banda vira um STL, para imprimir em cor diferente.")
     p.add_argument("--saida", default="output/base_berimbau.stl",
-                   help="Arquivo de saída")
+                   help="Arquivo de saída (multicolor gera um por banda)")
     args = p.parse_args()
 
     diametro_topo = args.diametro_topo or args.diametro * 0.88
     diametro_furo = args.furo + args.folga
 
-    tris = gerar_base(
+    if args.berimbau:
+        faixas = PRESET_BERIMBAU["faixas"]
+        nomes = PRESET_BERIMBAU["nomes"]
+    elif args.faixas:
+        faixas = [float(z) for z in args.faixas.split(",")]
+        nomes = None
+    else:
+        faixas, nomes = [], None
+
+    partes = gerar_base(
         diametro_base=args.diametro,
         diametro_topo=diametro_topo,
         altura=args.altura,
         diametro_furo=diametro_furo,
         profundidade_furo=args.profundidade,
         segmentos=args.segmentos,
+        faixas=faixas,
     )
-    escrever_stl(tris, args.saida)
 
-    print(f"\n  Gerado: {args.saida}")
-    print(f"  {len(tris)} triângulos\n")
-    print(f"  Base .......... {args.diametro:.1f} mm")
+    if nomes is None:
+        nomes = [f"parte{i + 1}" for i in range(len(partes))]
+    elif len(nomes) != len(partes):
+        nomes = [f"parte{i + 1}" for i in range(len(partes))]
+
+    base_nome = args.saida.rsplit(".stl", 1)[0]
+    limites = [0.0, *sorted(faixas), args.altura]
+
+    print()
+    if len(partes) == 1:
+        escrever_stl(partes[0], args.saida)
+        print(f"  Gerado: {args.saida} ({len(partes[0])} triângulos)")
+    else:
+        for i, (malha, nome) in enumerate(zip(partes, nomes), start=1):
+            caminho = f"{base_nome}_{i}_{nome}.stl"
+            escrever_stl(malha, caminho)
+            print(f"  {caminho}")
+            print(f"      z {limites[i - 1]:.1f} → {limites[i]:.1f} mm"
+                  f"   ({len(malha)} triângulos)")
+
+    print(f"\n  Base .......... {args.diametro:.1f} mm")
     print(f"  Topo .......... {diametro_topo:.1f} mm")
     print(f"  Altura ........ {args.altura:.1f} mm")
     print(f"  Furo .......... {diametro_furo:.1f} mm "
@@ -167,6 +273,12 @@ def main():
     print(f"  Profundidade .. {args.profundidade:.1f} mm\n")
     print("  Fatiamento: sem suporte, 4 paredes, 40-60% de preenchimento.")
     print("  O peso da base é o que impede o berimbau de tombar.\n")
+    if len(partes) > 1:
+        print("  MULTICOLOR (AMS) — as bandas já saem na posição certa:")
+        print("  1. Selecione os arquivos juntos ao importar no Bambu Studio.")
+        print("  2. Responda SIM em 'carregar como objeto único' — é isso que")
+        print("     mantém o alinhamento entre as bandas.")
+        print("  3. Na aba de objetos, atribua um filamento do AMS a cada parte.\n")
 
 
 if __name__ == "__main__":
